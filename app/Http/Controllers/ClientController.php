@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Client;
+use App\Models\Client;
 
 class ClientController extends Controller
 {
+
     public function index()
     {
         $clients = Client::all();
         return response()->json(['clients' => $clients]);
     }
+
 
     public function store(Request $request)
     {
@@ -27,10 +29,12 @@ class ClientController extends Controller
         return response()->json(['message' => 'Cliente creado con éxito', 'client' => $client], 201);
     }
 
+
     public function show(Client $client)
     {
         return response()->json(['client' => $client]);
     }
+
 
     public function update(Request $request, Client $client)
     {

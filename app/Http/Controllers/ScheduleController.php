@@ -3,60 +3,96 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Schedule;
+use App\Models\Schedule;
 use Carbon\Carbon;
 
 class ScheduleController extends Controller
 {
-    // Mostrar la lista de horarios disponibles para un barbero en una fecha específica
-    public function index(Request $request)
+
+    public function index()
     {
-        $request->validate([
-            'barber_id' => 'required|exists:barbers,id',
-            'date' => 'required|date',
-        ]);
-
-        $barberId = $request->input('barber_id');
-        $date = $request->input('date');
-
-        // Obtener horarios disponibles para el barbero en la fecha dada
-        $schedules = Schedule::where('barber_id', $barberId)
-            ->where('date', $date)
-            ->orderBy('time')
-            ->get();
-
+        $schedules = Schedule::all();
         return response()->json(['schedules' => $schedules]);
     }
 
-    // Crear horarios disponibles para un barbero en una fecha específica
+
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'barber_id' => 'required|exists:barbers,id',
             'date' => 'required|date',
-            'times' => 'required|array',
-            'times.*' => 'required|date_format:H:i',
+            'time' => 'required|time',
         ]);
 
-        $barberId = $request->input('barber_id');
-        $date = $request->input('date');
-        $times = $request->input('times');
+        // Verificar si el horario ya está ocupado
+        $isOccupied = Schedule::where('barber_id', $data['barber_id'])
+            ->where('date', $data['date'])
+            ->where('time', $data['time'])
+            ->exists();
 
-        // Eliminar horarios existentes para el barbero en la fecha dada
-        Schedule::where('barber_id', $barberId)
-            ->where('date', $date)
-            ->delete();
-
-        // Crear nuevos horarios disponibles
-        foreach ($times as $time) {
-            Schedule::create([
-                'barber_id' => $barberId,
-                'date' => $date,
-                'time' => $time,
-            ]);
+        if ($isOccupied) {
+            return response()->json(['message' => 'Este horario ya está ocupado'], 409);
         }
 
-        return response()->json(['message' => 'Horarios creados con éxito'], 201);
+        $schedule = Schedule::create($data);
+
+        return response()->json(['message' => 'Horario creado con éxito', 'schedule' => $schedule], 201);
     }
+
+    // Mostrar los detalles de un horario específico
+    public function show(Schedule $schedule)
+    {
+        return response()->json(['schedule' => $schedule]);
+    }
+
+    // Actualizar los datos de un horario
+    public function update(Request $request, Schedule $schedule)
+    {
+        $data = $request->validate([
+            'barber_id' => 'exists:barbers,id',
+            'date' => 'date',
+            'time' => 'time',
+        ]);
+
+        // Verificar si el nuevo horario está ocupado
+        if (isset($data['barber_id']) && isset($data['date']) && isset($data['time'])) {
+            $isOccupied = Schedule::where('barber_id', $data['barber_id'])
+                ->where('date', $data['date'])
+                ->where('time', $data['time'])
+                ->exists();
+
+            if ($isOccupied) {
+                return response()->json(['message' => 'Este horario ya está ocupado'], 409);
+            }
+        }
+
+        $schedule->update($data);
+
+        return response()->json(['message' => 'Horario actualizado con éxito', 'schedule' => $schedule]);
+    }
+
+    // Eliminar un horario
+    public function destroy(Schedule $schedule)
+    {
+        $schedule->delete();
+
+        return response()->json(['message' => 'Horario eliminado con éxito']);
+    }
+
+    public function checkAvailability($barber_id, $date, $time)
+{
+    // Verificar si el horario ya está ocupado
+    $isOccupied = Schedule::where('barber_id', $barber_id)
+        ->where('date', $date)
+        ->where('time', $time)
+        ->exists();
+
+    if ($isOccupied) {
+        return response()->json(['available' => false]);
+    }
+
+    return response()->json(['available' => true]);
 }
+}
+
 
